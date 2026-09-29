@@ -1,0 +1,406 @@
+<title>Sprite Shadows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap">
+<style>
+
+  :root {
+    --ground: #0b090b;
+    --ink: #e9e1d2;
+    --dim: #8c8078;
+    --line: #3a3236;
+    --glow: #f3ead8;
+    --font-ui: "Pixelify Sans", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--font-ui); overflow: hidden; }
+  .stage { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding-inline: 16px; padding-block: 12px; }
+  .frame { line-height: 0; max-width: 100%; }
+  canvas { display: block; max-width: 100%; touch-action: none; cursor: pointer; }
+  .hud { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; width: 100%; box-sizing: border-box; }
+  .hud h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0.04em; }
+  .hud p { margin: 2px 0 0; font-size: 13px; color: var(--dim); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  button { font: inherit; font-size: 14px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 0; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--dim); }
+  label { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+  input[type=range] { accent-color: var(--ink); width: 110px; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+</style>
+
+<main class="stage" id="stage">
+  <div class="frame"><canvas id="view" aria-label="Isometric dithered scene where pixel-art sprites cast shadows"></canvas></div>
+  <div class="hud" id="hud">
+    <div>
+      <h1>Sprite Shadows</h1>
+      <p>Gemini-generated pixel sprites casting real shadows. WASD or click to walk the knight.</p>
+    </div>
+    <div class="controls">
+      <label for="sunAz">Sun angle <input id="sunAz" type="range" min="0" max="360" value="250"></label>
+      <label for="sunEl">Sun height <input id="sunEl" type="range" min="8" max="75" value="28"></label>
+      <button id="spinBtn" type="button" aria-pressed="false">Turn sun</button>
+      <button id="ditherBtn" type="button" aria-pressed="true">Dither: on</button>
+      <button id="artBtn" type="button" hidden>Art: generated</button>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const GEN = {"knight": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKsAAAARCAYAAACiuVwKAAAB70lEQVR4nO2ZPU7DQBCFN5wB+QQuAKVCERU1hUUdRRQ5QAoXFDlECo6AKBCyUkecgApFVIiaEkW5g9FYGhhWJuzPizPAjmTZjuxP897u2LOOMQ5RnBX1zfVt7XJtlyxkaNWY/PqMPeMY58WpWb+9QpJDsdADqVEjklX8cr+cJ+t4PDFH/RNEXlAW0jCtGpNfjpOVqpGPB8eDny7vjIU0TKvG5JdHZPtZ89qgSqRj2jSwWKTcNOSllfUf/GoEMoj2Ma8PJAspUqvG5JdnsDBuzGMNQ7HQA6lRY/LLM1gcA2Mf+UgW0jCtGpNfjgsseeNsdtXsR8OR6R8ceieHZHG8PD+a5dPSzKu74AWDVo3JL8/gmU6VKCsgpJKQLL6PGMQjdjkp6xCRWjUmvwJhEhj6QXkbLKRhWjUmvxyDK1D2O6G9DpqFNEyrxuSXR8+a57mp5tXH+XB0EdzrIFnc21BMp5fNh2T6V2bXeWllbdMv6oEX9w9f+s9dsJqQqzSuyiAQkCWrEZGXzE8TS6tfmbVyj2EiWTDDUElJ0yECW7iICauRU4pJG8Oyx5O5sRw7T2+QPSlCQDZH/u7La2PFGia5sRw7n9ic7KeiiWAhOG2sUOZ3Y7mJ19sE4+PVetWzz32SarsvlOfK/0scrXmtOua8A2ygssLHx9MvAAAAAElFTkSuQmCC", "w": 19, "h": 17, "n": 9}, "pilgrim": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAAQCAYAAAD59vZgAAACCklEQVR4nOVZMUvDUBB+9S9YMgl26KAlrk7ODsHJoRQRFUeH/AMdOnboTxAVh9LBSXB1dGhdFHWs4CCh/obK9+AghTTNvUt76DsISUO/u++73Hvv8mLMHBs+PU5wzPvfovBS0+Y//Of6V/LA4camBb68fZloN2KTkOKlCdDmH3qgP7eAkvGPub65M1uNNTN4HnDji/HSBGjzTzzXb+Kz2FZ/UA2cRoAUD5zEhzb/2Gf9qHiAx9+jydXlrXXAGQVSvFSANv/Ic/1T1Q8nuEeOloGXCtDmH3iiP7cHIvscjazDosHLwGPNxfoL7F60Y+81WwdLi6+NH/x1/QDQgcqj62XiaQTQNM4dQdr8A4/12+kSQIhwXYMleKkAbf6R5/qnGjiXfQgpXipAm3/sif65PdDDfZ8buxR8vV63+w+9fk/EQYu/L/ozCyhd8Wjk1ms1VlApXpoAbf6BR/ozC6jVbJnjo33nLjwZJxW6hp92u2u35Iv6kCZAwh9TNx4a8IiNcyPcLhw7FuK19XOf38qs7XMQJzu/6LAESH0E1VXjWoCS2FLeYQm5kxag+vND85Z+A0i/CRQNXoYPJJIaOZzJ5yL5p7H4zeUdCfES3Vkc4I/LgZvDyiwh9DEta1rLM8LCXj/eK2nxRX1AQNbHu06na05OD514GIa5cDYzsBwead3Aki+O7jI0cHL3C7hAQpL5xKT8AAAAAElFTkSuQmCC", "w": 16, "h": 16, "n": 9}, "crow": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAANCAYAAADv5u30AAAByUlEQVR4nM1VvUoDQRDeFd/AcJUEhFSCTTzE0kowWFkch4Wx1SKFxT2Adil8By3kuMIqkELIExx5goCQ8kieYeUbdo65u93gPzewt7u3P/N938zuatUCCzqBGo8fTZLcoasdU4ytK2PFqnBO/ncLOgEAagEUJrGZOIqpkWaplgS2VEssjmIJvmJhPwRw51hbCGh8ppMMRKiIaJjl8p3+uUi0JYUUR2E2e1Pd7h71e71eY643hbCJr4xuRwZ5asufkilWawKez3MFMovFQvXDIxobXl18K4UolHyIagftVy3N0kq+IxJIH3s7qbPzqJEx5Q+XsggpWD89v5IaxWqtOXR1w/qwHxoox2RZuYP9XaqH1zfOPYKqbwMSbNhP4CmjADKVa7ROYDrJDIBLEKyAjwAD4AaARPFluR77AQA79/kOOjsG6jN4Ef2GkHqTCpK97XsJDE4HpL6IakmEASCfYQ/3iTo8PtkYfcaA88Dr2P/GdwAvorwBsIkE7zM7LudQG2sBAIUFQSQ8Zux7QBj4IKP2+d+Wi/HJ0pfyuuKc/sl1W3ecz3Pjuh6VVZzVrr3MXv+NCEglHap+1QgEhPgEGA1/NZ+a3wSffQANifGjCCMowQAAAABJRU5ErkJggg==", "w": 16, "h": 13, "n": 3}, "pine": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEUAAAAhCAYAAACP6GZlAAAEK0lEQVR4nOVZv28TMRj1VfwHrTKhSkgdIApLFWViqgQSVecoU2GlQ4cOHTNEYolQR0YEFUOUgamiA1LVgQFVhYUqcweGKgp/g9Ezfsd3ju/su4S2hE+yznbunj8/fz9sJ1H/sNRWalHvddodPRgOkph3x5OxWlKLL7rb3Sv1wcKT0ml3WNWx3yw8KV1rJf3+QfQ3i06KZmVr81H0R4tMih5dnKle77eF4Dm6ONP/OykKRMB9+IyVqDR1TelTF+mDVFkGE1YBMgbDAdvpb/VGS+WNdZtSshZZYi5iJ55mH7RZQsZwK0gZiVWcZzyBwG1QRwFBtl/fdvfRnEDIrCMx0wkz0IIYYKNNC7KS+Ma5cVJGTkaoN1qzkkIxuA7hlMLYdaPuU1tZ1tvbO6ZOf8c5ZUZYfXw0NDEKReBG725v1FL6/QP9sH5XPXv+Qm1sPDZ9Nlt4zToGk+4Isg8PX3uDbmicO7ETCKVNn9IhwS4TPn96emzaqEPxbndP57lRSDhxEMKNG2W92TJj0jrz5pOU9f96CZ8PYBb5/JRuMZbC+MT9CQMrx5D9YswkylJ8Mgdf92Gm/k6prSyr8eRnFTgsWAYbcnw0TPuQhbjDhdXwO5eYpQp3ErqKxi4eVwtPrB73EIgtMXsJjyScHDEh30c/zJOuBOLw2/7+XuYbKdHZp9c7kKY4CzGpiXPVgCnPKOyrMg7IlQQgkENAhCfgevFjYoqWPskBYnw+hOmauzynWP9PYmJKc72p19bWDKFHHz+rV/2XanX1njr/dp7Bp+6ow31A2LvDD1PjRAXaTruTuo/YGVYmBfsTxA1JRE49ihR38aQwuJIU97TsBttYUrRcVQkuAUuQktnWuwdBKo3JnJx8QtDNxfdh5l0TuP0yXYcsMh3MFj25ujRld2c3U8dv4j0VEhfTxWNdtvnMwyemfceUr19OzTd8ojTuPyBO5j07D8Unxwml5KTeaKXByK6cmlXk4YyZQronxG0H8LDSRs+nW+20n7HJ1RnWyfd8f3+Eso/mmQEF4LgAZvqMvd5zFYIww3DSeEqTFmTE7GyN+0hdicF4Il1VbgEgdh7Fc6lZM5fuI92GbdZLuE8Gi8Vtyz66aVmXdNubTzYNlnDJzO/BMFBzBpNPCS7jSgQpqR+7yktS3AXAN3jGEJ1HSN6iyjgTXNyaDV5SWUmEGwxjSEGwowKsv33z3lXKkC7Hse96MXMmlqunnIdsywLc3JQ8KogXDJDiVispu3kreDXxnUlCKVlFitwPIT7i1CwCtZmHl5TJ1aU5XLn3EgyEIIL9DIjjybgwIMbcklmZ581bmpWa603scF3sqcNgaPOmhZLBla1wdTC1w5V4cyCFoi0hudjuOEUpOREgiaffe8KsIjinQPG/IcQtgx99n6L+mGB5zYpFO5iFf4pdB/YvKygFZUWwCiYAAAAASUVORK5CYII=", "w": 23, "h": 33, "n": 3}, "roses": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFQAAAAQCAYAAACIoli7AAAEA0lEQVR4nMVYsWobQRDdNUIEg6vYIkUQ5AdSGOEqRSp9glFh8hWu8gGp/BHBhCD8CapcpDKHi9QGg6ogS1XAGGG84Y3mredWe6c7W5CB8+n2bt/NvHk7s2fv1Hr7Pfdam81n7qV4o+NRGF+M/bZxN+Ft23aaPtjbfxtwtH3B6HhUmnN6/xQmj904BkyMvf/+U+61xU9x3H+2Tm5wcDgIxXXh6ehsvvBfpndy72y3cQ7Ebm5uhKiz3Z2c+gJx2xp8nE5vHXzDNXEwjjP8t7+rcLaheKv6NULhxOdfV27aPwj9/geH3wgchODewDmQjTEPpU2WDzKvgjCn82OSzvsH7hwD80UYHA7c5SpgJE7IsSqrwiSuJjeYZ4NTLPzmu4uWIqjzAfcQA7jJJWqNUDxU7O4EN19I1ofdN46kKZGwCGTv5+zy05HMG+g1HIHN5ouIB2K/Xf12znXDSX/P/fjztxYTq+ZspcxS6dAgBTtZTXiuMjkNLM5HvG565y41jtRKqdMlUsrO16OPDhkx5rWWhmFnKYHXKWk6vRXCcLY1GGM8aMACGcPO0tdhgjguZ53vkQSTcKoUNdw1tFLsFAPGTu+fqNoAPlQkfiOhqQJ1mUZVSdCP3SAKeuxKMHWBT/RZkAkMKB5KxHXOkH04j/fWNUAbjPocSw+NKh1fjOXcpKFqclDe4soCF/BL1e4xVuV/TqGx/uBs1UXZw/FMCcg5G/AnDRTXJBmGM46Td3tyYDWg9mnSNpJKhdtmyTGrftTnDaSW8EgmkouVaGOCONLdSqVC2TUxiVlWhUrNguM49CXSRKDWnIMTQ6bNKscxBuJ4mHc1ahp476r2rgwiACFMtNTuZ3JltdQZnrdzEK/uFrLP5+p82pS4lETaBKVC2YmTOuvOXMxgybgzmKmT0t1JWoZg5/aEZIOZLSfSGO4fgkvyyKaEsoFnkHQShPOwU12aBLezlPcV10VMmPQKU5th9BHvqVWokXFgHeNeD06pYm0zILEbO2ihTiFoq1YscwTPrYjBrsTUpiWEcTkiOJLHnQcbk/Exuxc2Slv7OOC9lDxga7MOlYSmWyQueUsI66y9rrNCg1R1R1xbUkAq1WXfVWdpnWQNXSlxKU2F+BvwhGSzn37mo7OUa22+axNNKawgFBnHcnp+kddJsgmnc+qo3G8QvEcdMnNKQWLc7kltEusss23hl53Fb7T3RGnS8lQSCFXJ5mzxqyyl3WsdsYGjO0YwFv42yz19jhgWt8HSrEwWfmiJSnFa4WlTis/rPjQm3JQ9KYO5vWiTbzIhjnVPwdsEnRoLv1ywFLQkMotJtb/C7Pu9Vabx2TdUTa/Jp1ftJ9ys3b/ZGiv8Bbi1mNv+d6DF/Af03daWz1EQJAAAAABJRU5ErkJggg==", "w": 21, "h": 16, "n": 4}};
+(() => {
+  const canvas = document.getElementById('view'), stage = document.getElementById('stage'), hud = document.getElementById('hud');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const rnd = mulberry32(99);
+  const h2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const sm = t => t * t * (3 - 2 * t);
+  function vnoise(x, z) { const ix = Math.floor(x), iz = Math.floor(z), fx = sm(x - ix), fz = sm(z - iz); const a = h2(ix, iz), b = h2(ix + 1, iz), c = h2(ix, iz + 1), d = h2(ix + 1, iz + 1); return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz; }
+  const fbm = (x, z) => vnoise(x, z) * 0.5 + vnoise(x * 2.03, z * 2.03) * 0.25 + vnoise(x * 4.1, z * 4.1) * 0.125 + vnoise(x * 8.2, z * 8.2) * 0.0625;
+
+  const PAL = {
+    k: '#161416', d: '#5a5a60', s: '#a0a0a6', h: '#e8e6e0', c: '#2c2829', b: '#4a3a30',
+    r: '#d0101c', R: '#8a0a14', g: '#4a4e48', G: '#2e322e', n: '#ece8e0', w: '#d8d2c8', m: '#8a847e', t: '#3a2e28'
+  };
+  const KNIGHT_TOP = [
+    '................',
+    '......kkkk......',
+    '.....khhssk.....',
+    '.....khsssk.....',
+    '.....ksskkkk....',
+    '.....ksssssk....',
+    '......kdddk.....',
+    '....kkssssskk...',
+    '...kchsssssssk..',
+    '..kcchssssssdk..',
+    '..kcchssssskdk..',
+    '..kcckdsssskhk..',
+    '..kcckbbbbbkhk..',
+    '..kcckccccckhk..',
+    '...kkcccccccsk..',
+    '....kcccccccck..'
+  ];
+  const KNIGHT_LEGS = [
+    ['.....kdk.kdk....', '.....kdk.kdk....', '.....ksk.ksk....', '.....ksk.ksk....', '.....ksk.ksk....', '....kddk.kddk...', '....kkkk.kkkk...', '................'],
+    ['....kdk...kdk...', '....kdk...kdk...', '...ksk.....ksk..', '...ksk.....ksk..', '..ksk.......ksk.', '..kddk......kddk', '..kkkk......kkkk', '................'],
+    ['......kdkkdk....', '......kdkkdk....', '......ksk.ksk...', '.....ksk..ksk...', '.....ksk...ksk..', '....kddk...kddk.', '....kkkk...kkkk.', '................']
+  ];
+  const KNIGHT = KNIGHT_LEGS.map(l => KNIGHT_TOP.concat(l));
+
+  const PILGRIM = [0, 1].map(f => [
+    '....kkkk....',
+    '...kwwwwk...',
+    '..kwwkkwwk..',
+    '..kwk..kwk..',
+    '..kwwkkwwk..',
+    '...kwwwwk..t',
+    '..kwwwwwwk.t',
+    '.kwwwwwwwwkt',
+    '.kwwwwwmwwkt',
+    '.kwwwwwmwwwk',
+    '.kwwwwwmwwkt',
+    '.kwwwwwwwwkt',
+    f ? 'kwwwwwwmwwkt' : '.kwwwwwmwwkt',
+    'kwwwwwwmwwwk',
+    'kwwwwwwwwwwk',
+    'kwwwwwwwwwwk',
+    'kwwwwwwwwwwk',
+    f ? 'kmmmmmmmmmk.' : 'kmmmmmmmmmmk',
+    f ? '.kkkkkkkkk..' : 'kkkkkkkkkkkk'
+  ]);
+  const CROW = [
+    ['..........', '...kk.....', '..kkkkk...', 'kkkkkkkkk.', '.kkkkkkkkk', '..kkkk....', '...k.k....'],
+    ['kk.....kk.', '.kk...kk..', '..kkkkk...', '..kkkkkkkk', '...kkkk...', '....kk....', '..........'],
+    ['..........', '..........', '....kk....', '..kkkkkkk.', '.kkkkkkkkk', '..kkkk.kk.', '...k.k....']
+  ];
+  const ROSES = [
+    ['..r..r..', '.rRr.rRr', '.grr.rrg', 'grggrgGg', 'gGgrggGg', '.gGggGg.', '..G.G...'],
+    ['...r....', '.r.rRr..', 'rRrgrr.r', 'grrgGgRr', 'gGgggrgg', '.gGgGgg.', '..G..G..']
+  ];
+  function pine(w, h) {
+    const rows = [];
+    for (let y = 0; y < h; y++) {
+      const trunk = y >= h - 4, tier = Math.floor(y / (h / 4)), local = y % Math.floor(h / 4);
+      let half = trunk ? 1 : Math.min(w / 2 - 1, 1 + tier * 1.3 + local * 0.9);
+      let row = '';
+      for (let x = 0; x < w; x++) {
+        const dx = Math.abs(x - (w - 1) / 2);
+        if (trunk) row += dx <= 1 ? (dx < 0.6 ? 't' : 'k') : '.';
+        else if (dx <= half) row += (dx > half - 1 ? 'k' : ((x + y * 3) % 7 === 0 && dx < half - 1.5 && local < 2 ? 'n' : (x < (w - 1) / 2 ? 'G' : 'g')));
+        else row += '.';
+      }
+      rows.push(row);
+    }
+    return [rows];
+  }
+
+  const useGen = Object.keys(GEN).length > 0 && location.hash !== '#hand';
+  function genSheet(m) {
+    const img = new Image(), tex = new THREE.Texture(img);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    const s = { tex, w: m.w, h: m.h, n: m.n, clones: [tex], ready: false };
+    img.onload = () => { s.ready = true; s.clones.forEach(t => { t.needsUpdate = true; }); };
+    img.src = m.src; return s;
+  }
+  function frameSheet(s, f) {
+    const tex = s.tex.clone(); tex.repeat.set(1 / s.n, 1); tex.offset.set(f / s.n, 0);
+    if (s.clones) { s.clones.push(tex); if (s.ready) tex.needsUpdate = true; } else tex.needsUpdate = true;
+    return { tex, w: s.w, h: s.h, n: 1, frameOnly: true };
+  }
+
+  function sheet(frames) {
+    const w = Math.max(...frames.flat().map(r => r.length)), h = frames[0].length, n = frames.length;
+    const cv = document.createElement('canvas'); cv.width = w * n; cv.height = h;
+    const ctx = cv.getContext('2d');
+    frames.forEach((rows, f) => rows.forEach((row, y) => [...row].forEach((ch, x) => { if (PAL[ch]) { ctx.fillStyle = PAL[ch]; ctx.fillRect(f * w + x, y, 1, 1); } })));
+    const tex = new THREE.CanvasTexture(cv);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    return { tex, w, h, n };
+  }
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap; renderer.autoClear = false;
+  const BG = new THREE.Color(0x6a6468);
+  const scene = new THREE.Scene();
+  const LOW = 240, VIEW = 30, UPP = VIEW / LOW;
+  const camera = new THREE.OrthographicCamera(-VIEW / 2, VIEW / 2, VIEW / 2, -VIEW / 2, -100, 200);
+  const CAM_DIR = new THREE.Vector3(Math.cos(Math.PI / 6) * Math.sin(Math.PI / 4), Math.sin(Math.PI / 6), Math.cos(Math.PI / 6) * Math.cos(Math.PI / 4));
+  const camTarget = new THREE.Vector3();
+  function placeCamera() { camera.position.copy(camTarget).addScaledVector(CAM_DIR, 60); camera.lookAt(camTarget); camera.updateMatrixWorld(); }
+  placeCamera();
+  const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+
+  scene.add(new THREE.HemisphereLight(0xb0aab8, 0x2a242a, 0.42));
+  const sun = new THREE.DirectionalLight(0xf4f0f6, 1.5);
+  sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 160 });
+  sun.shadow.bias = 0; sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+
+  {
+    const g = new THREE.PlaneGeometry(120, 120, 80, 80); g.rotateX(-Math.PI / 2);
+    const p = g.attributes.position, col = new Float32Array(p.count * 3), A = new THREE.Color(0xe6e1d8), B = new THREE.Color(0xa39c96), c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) { const n = fbm(p.getX(i) * 0.09, p.getZ(i) * 0.09); c.copy(A).lerp(B, Math.max(0, Math.min(1, (n - 0.45) / 0.3))); col.set([c.r, c.g, c.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; scene.add(m);
+  }
+
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x7a7074, roughness: 1, flatShading: true });
+  { const g = new THREE.BoxGeometry(1.8, 4.6, 1.1, 2, 3, 2); const pa = g.attributes.position; for (let i = 0; i < pa.count; i++) { pa.setX(i, pa.getX(i) * (1 + (rnd() - 0.5) * 0.15)); if (pa.getY(i) > 2) pa.setY(i, pa.getY(i) - Math.abs(pa.getX(i)) * 0.4); } g.computeVertexNormals();
+    const s = new THREE.Mesh(g, stoneMat); s.position.set(-5, 2.1, -4); s.rotation.set(0, 0.4, 0.06); s.castShadow = s.receiveShadow = true; scene.add(s); }
+  [[5, -7, 3.2], [6.6, -7.2, 2.1], [8.2, -7.1, 1.2], [3.4, -7.3, 1.6]].forEach(([x, z, h]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, h, 1), stoneMat); b.position.set(x, h / 2, z); b.castShadow = b.receiveShadow = true; scene.add(b); });
+
+  const ghostMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+  const unitPlane = new THREE.PlaneGeometry(1, 1);
+  const actors = [];
+  function actor(sh, x, z) {
+    const tex = sh.tex.clone();
+    if (sh.clones) { sh.clones.push(tex); if (sh.ready) tex.needsUpdate = true; } else tex.needsUpdate = true;
+    tex.repeat.set(1 / sh.n, 1);
+    const W = sh.w * UPP, H = sh.h * UPP;
+    const vis = new THREE.Mesh(unitPlane, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }));
+    vis.scale.set(W, H, 1); vis.quaternion.copy(camera.quaternion);
+    const shadow = new THREE.Mesh(unitPlane, ghostMat);
+    shadow.scale.set(W, H, 1); shadow.castShadow = true;
+    shadow.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+    scene.add(vis, shadow);
+    const a = { sh, tex, vis, shadow, W, H, pos: new THREE.Vector3(x, 0, z), lift: 0, frame: 0, flip: false };
+    a.update = () => {
+      a.tex.repeat.x = (a.flip ? -1 : 1) / sh.n;
+      a.tex.offset.x = (a.frame + (a.flip ? 1 : 0)) / sh.n;
+      a.vis.position.copy(a.pos).addScaledVector(camUp, H / 2); a.vis.position.y += a.lift;
+      a.shadow.position.set(a.pos.x, a.pos.y + a.lift + H / 2, a.pos.z);
+      a.shadow.rotation.y = casterYaw;
+    };
+    actors.push(a); return a;
+  }
+
+  let sunYaw = 0, casterYaw = 0;
+  const BASE_YAW = Math.atan2(-camRight.z, camRight.x);
+  function updateCasterYaw() {
+    let d = sunYaw - BASE_YAW; d = Math.atan2(Math.sin(d), Math.cos(d));
+    if (d > Math.PI / 2) d -= Math.PI; if (d < -Math.PI / 2) d += Math.PI;
+    const lim = 65 * Math.PI / 180;
+    casterYaw = BASE_YAW + (Math.abs(d) > lim ? (Math.abs(d) - lim) * Math.sign(d) : 0);
+  }
+  const knight = actor(useGen && GEN.knight ? genSheet(GEN.knight) : sheet(KNIGHT), 0, 3);
+  knight.walk = useGen && GEN.knight ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 0, 2, 0];
+  const STEP = 1.5 * UPP;
+  const pilgrim = actor(useGen && GEN.pilgrim ? genSheet(GEN.pilgrim) : sheet(PILGRIM), -3, -1);
+  const genCrow = useGen && GEN.crow;
+  const CROW_F = genCrow ? { peck: 1, fly: [2, 2] } : { peck: 2, fly: [1, 2] };
+  const crowSheet = genCrow ? genSheet(GEN.crow) : sheet(CROW);
+  const crows = [[2, -2], [3.2, -1.2], [1.4, -0.6], [4, -2.6], [2.6, 0.4]].map(([x, z]) => Object.assign(actor(crowSheet, x, z), { home: new THREE.Vector3(x, 0, z), seed: rnd() * 10, flying: 0 }));
+  const genPine = useGen && GEN.pine ? genSheet(GEN.pine) : null;
+  const pineSheets = genPine ? [genPine, genPine, genPine] : [sheet(pine(15, 26)), sheet(pine(19, 34)), sheet(pine(13, 22))];
+  for (let i = 0; i < 26; i++) {
+    let x, z; do { x = (rnd() - 0.5) * 50; z = (rnd() - 0.5) * 50; } while (Math.hypot(x, z) < 9);
+    const p = actor(pineSheets[i % 3], x, z); if (genPine) p.frame = i % genPine.n; p.update();
+  }
+
+  const genRose = useGen && GEN.roses ? genSheet(GEN.roses) : null;
+  const roseSheets = genRose ? Array.from({ length: genRose.n }, (_, f) => frameSheet(genRose, f)) : ROSES.map(r => sheet([r]));
+  const roseSets = roseSheets.map((sh, si) => {
+    const spots = [];
+    for (let i = 0; i < 4000 && spots.length < (genRose ? 30 : 260); i++) { const x = (rnd() - 0.5) * 34, z = (rnd() - 0.5) * 34; if (fbm(x * 0.15 + si * 7, z * 0.15) > 0.58 && Math.hypot(x, z - 3) > 2.5) spots.push([x, z]); }
+    const W = sh.w * UPP, H = sh.h * UPP;
+    const vis = new THREE.InstancedMesh(unitPlane, new THREE.MeshLambertMaterial({ map: sh.tex, alphaTest: 0.5, side: THREE.DoubleSide }), spots.length);
+    const sha = new THREE.InstancedMesh(unitPlane, ghostMat, spots.length);
+    sha.castShadow = true; sha.frustumCulled = false; vis.frustumCulled = false;
+    sha.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: sh.tex, alphaTest: 0.5, side: THREE.DoubleSide });
+    const m4 = new THREE.Matrix4(), s = new THREE.Vector3(W, H, 1), p = new THREE.Vector3();
+    spots.forEach(([x, z], i) => { p.set(x, 0, z).addScaledVector(camUp, H / 2); m4.compose(p, camera.quaternion, s); vis.setMatrixAt(i, m4); });
+    scene.add(vis, sha);
+    return { spots, sha, W, H };
+  });
+  function updateRoseShadows() {
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), casterYaw), p = new THREE.Vector3();
+    roseSets.forEach(r => { const s = new THREE.Vector3(r.W, r.H, 1); r.spots.forEach(([x, z], i) => { m4.compose(p.set(x, r.H / 2, z), q, s); r.sha.setMatrixAt(i, m4); }); r.sha.instanceMatrix.needsUpdate = true; });
+  }
+
+  const quadGeo = new THREE.PlaneGeometry(2, 2), orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  const ditherMat = new THREE.ShaderMaterial({
+    uniforms: { tScene: { value: null }, uTime: { value: 0 }, uDither: { value: 1 } },
+    vertexShader: VERT,
+    fragmentShader: `
+      precision highp float;
+      varying vec2 vUv; uniform sampler2D tScene; uniform float uTime, uDither;
+      float bayer2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+      float bayer4(vec2 a){ return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+      float bayer8(vec2 a){ return bayer4(0.5 * a) * 0.25 + bayer2(a); }
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ v += a * vnoise(p); p *= 2.03; a *= 0.5; } return v; }
+      vec3 ramp(float t){ vec3 c = mix(vec3(0.065, 0.052, 0.07), vec3(0.94, 0.905, 0.83), t); return c + vec3(0.025, 0.0, 0.035) * sin(t * 3.14159); }
+      vec3 redRamp(float t){ return mix(vec3(0.13, 0.015, 0.03), vec3(0.97, 0.2, 0.17), t); }
+      void main(){
+        vec3 col = texture2D(tScene, vUv).rgb;
+        float mx = max(col.r, max(col.g, col.b));
+        float rose = step(0.5, (col.r - max(col.g, col.b)) / max(mx, 1e-4)) * step(0.004, mx);
+        float l = pow(clamp(dot(col, vec3(0.299, 0.587, 0.114)), 0.0, 1.0), 0.72);
+        if (rose > 0.5) l = col.r * 0.8;
+        float cl = fbm(vUv * 1.7 + vec2(uTime * 0.012, 3.0));
+        l *= 1.0 - smoothstep(0.35, 0.72, cl) * 0.25;
+        l += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 91.0) - 0.5) * 0.03;
+        l = clamp(l, 0.0, 1.0);
+        float lv = rose > 0.5 ? 4.0 : 6.0, t;
+        if (uDither > 0.5) { float v = l * (lv - 1.0); t = (floor(v) + step(bayer8(gl_FragCoord.xy), fract(v))) / (lv - 1.0); } else t = l;
+        gl_FragColor = vec4(rose > 0.5 ? redRamp(t) : ramp(t), 1.0);
+      }`
+  });
+  const ditherScene = new THREE.Scene(); ditherScene.add(new THREE.Mesh(quadGeo, ditherMat));
+  const crtMat = new THREE.ShaderMaterial({
+    uniforms: { tImg: { value: null }, uLow: { value: new THREE.Vector2(LOW, LOW) }, uTime: { value: 0 }, uBg: { value: new THREE.Color(0x0b090b) } },
+    vertexShader: VERT,
+    fragmentShader: `
+      precision highp float;
+      varying vec2 vUv; uniform sampler2D tImg; uniform vec2 uLow; uniform float uTime; uniform vec3 uBg;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float sdRound(vec2 p, vec2 b, float r){ vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
+      void main(){
+        vec2 c = vUv * 2.0 - 1.0;
+        float mask = 1.0 - smoothstep(-0.004, 0.004, sdRound(c, vec2(0.985), 0.07));
+        vec2 uv = (c * (1.0 + 0.045 * dot(c, c)) / 1.07) * 0.5 + 0.5;
+        vec3 col = texture2D(tImg, uv).rgb, blur = vec3(0.0); vec2 px = 1.25 / uLow;
+        blur += texture2D(tImg, uv + vec2(px.x, 0.0)).rgb; blur += texture2D(tImg, uv - vec2(px.x, 0.0)).rgb;
+        blur += texture2D(tImg, uv + vec2(0.0, px.y)).rgb; blur += texture2D(tImg, uv - vec2(0.0, px.y)).rgb;
+        blur /= 4.0;
+        col = mix(col, blur, 0.25) + smoothstep(0.55, 0.95, blur) * 0.1;
+        col *= mix(0.3, 1.0, smoothstep(1.55, 0.35, length(c)));
+        col += (hash(vUv * 900.0 + fract(uTime) * 37.0) - 0.5) * 0.04;
+        gl_FragColor = vec4(mix(uBg, col, mask), 1.0);
+      }`
+  });
+  const crtScene = new THREE.Scene(); crtScene.add(new THREE.Mesh(quadGeo, crtMat));
+  const nearest = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter };
+  const sceneRT = new THREE.WebGLRenderTarget(LOW, LOW, nearest), ditherRT = new THREE.WebGLRenderTarget(LOW, LOW, nearest);
+
+  function fit() { const size = Math.max(200, Math.floor(Math.min(stage.clientWidth - 32, window.innerHeight - hud.offsetHeight - 44))); renderer.setSize(size, size, true); hud.style.maxWidth = size + 'px'; }
+  window.addEventListener('resize', fit); fit();
+
+  const sunAz = document.getElementById('sunAz'), sunEl = document.getElementById('sunEl'), spinBtn = document.getElementById('spinBtn'), ditherBtn = document.getElementById('ditherBtn');
+  const artBtn = document.getElementById('artBtn');
+  if (Object.keys(GEN).length) {
+    artBtn.hidden = false; artBtn.textContent = 'Art: ' + (useGen ? 'generated' : 'hand-drawn');
+    artBtn.addEventListener('click', () => { location.hash = useGen ? 'hand' : 'gen'; location.reload(); });
+  }
+  let spinning = false;
+  spinBtn.addEventListener('click', () => { spinning = !spinning; spinBtn.setAttribute('aria-pressed', String(spinning)); spinBtn.textContent = spinning ? 'Stop sun' : 'Turn sun'; });
+  ditherBtn.addEventListener('click', () => { const on = ditherMat.uniforms.uDither.value < 0.5; ditherMat.uniforms.uDither.value = on ? 1 : 0; ditherBtn.setAttribute('aria-pressed', String(on)); ditherBtn.textContent = 'Dither: ' + (on ? 'on' : 'off'); });
+  const keys = new Set(); let walkTo = null;
+  window.addEventListener('keydown', e => { if (/^(INPUT|BUTTON)$/.test(document.activeElement && document.activeElement.tagName) && e.code.startsWith('Arrow')) return; if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) { keys.add(e.code); walkTo = null; if (e.code.startsWith('Arrow')) e.preventDefault(); } });
+  window.addEventListener('keyup', e => keys.delete(e.code));
+  window.addEventListener('blur', () => keys.clear());
+  const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  canvas.addEventListener('click', e => { const r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); raycaster.setFromCamera(ndc, camera); const hit = raycaster.ray.intersectPlane(plane, new THREE.Vector3()); if (hit) walkTo = hit; });
+
+  const clock = new THREE.Clock();
+  let lastSun = '';
+  const fwd = new THREE.Vector3(-CAM_DIR.x, 0, -CAM_DIR.z).normalize(), right = new THREE.Vector3(camRight.x, 0, camRight.z).normalize();
+  let knightDist = 0, pilgrimT = 0, pilgrimDist = 0;
+  const PA = new THREE.Vector3(-6, 0, -1), PB = new THREE.Vector3(-1.5, 0, 0.6), PLEN = PA.distanceTo(PB), PSPEED = 0.9, PPAUSE = 2.5;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+    if (spinning && !reduceMotion) sunAz.value = (+sunAz.value + dt * 20) % 360;
+    const az = +sunAz.value * Math.PI / 180, el = +sunEl.value * Math.PI / 180;
+    const sunDir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+    sunYaw = Math.atan2(sunDir.x, sunDir.z); updateCasterYaw();
+    const key = sunAz.value + '/' + sunEl.value;
+    if (key !== lastSun) { lastSun = key; updateRoseShadows(); }
+
+    const mv = new THREE.Vector3();
+    const kf = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+    const kr = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+    if (kf || kr) mv.addScaledVector(fwd, kf).addScaledVector(right, kr);
+    else if (walkTo) { mv.set(walkTo.x - knight.pos.x, 0, walkTo.z - knight.pos.z); if (mv.length() < 0.15) { walkTo = null; mv.set(0, 0, 0); } }
+    if (mv.lengthSq() > 0) {
+      mv.normalize(); knight.pos.addScaledVector(mv, dt * 2.4); knightDist += dt * 2.4;
+      knight.pos.x = Math.max(-24, Math.min(24, knight.pos.x)); knight.pos.z = Math.max(-24, Math.min(24, knight.pos.z));
+      const sx = mv.dot(right); if (Math.abs(sx) > 0.05) knight.flip = sx < 0;
+      knight.frame = knight.walk[Math.floor(knightDist / STEP) % knight.walk.length];
+    } else { knight.frame = 0; knightDist = 0; }
+
+    pilgrimT += dt;
+
+    const leg = PLEN / PSPEED, cyc = 2 * (leg + PPAUSE), c = pilgrimT % cyc;
+    let u, moving = true;
+    if (c < leg) u = c / leg; else if (c < leg + PPAUSE) { u = 1; moving = false; }
+    else if (c < 2 * leg + PPAUSE) u = 1 - (c - leg - PPAUSE) / leg; else { u = 0; moving = false; }
+    const prevX = pilgrim.pos.clone(); pilgrim.pos.lerpVectors(PA, PB, u);
+    const pdx = pilgrim.pos.clone().sub(prevX);
+    if (moving) { pilgrimDist += pdx.length(); const sx = pdx.dot(right); if (Math.abs(sx) > 1e-5) pilgrim.flip = sx < 0; }
+    pilgrim.frame = moving && pilgrim.sh.n > 2 ? 1 + Math.floor(pilgrimDist / STEP) % (pilgrim.sh.n - 1) : (moving ? Math.floor(t * 3) % pilgrim.sh.n : 0);
+
+    crows.forEach(c => {
+      const near = knight.pos.distanceTo(c.home) < 2.8;
+      c.flying = Math.max(0, Math.min(1, c.flying + (near ? dt * 1.5 : -dt * 0.5)));
+      const f = sm(c.flying);
+      c.pos.set(c.home.x + Math.sin(c.seed) * f * 4, 0, c.home.z + Math.cos(c.seed) * f * 4);
+      c.lift = f * (2.5 + Math.sin(t * 3 + c.seed) * 0.3);
+      c.frame = c.flying > 0.05 ? CROW_F.fly[Math.floor(t * 10 + c.seed) % 2] : (Math.sin(t * 2 + c.seed * 5) > 0.7 ? CROW_F.peck : 0);
+      c.flip = Math.sin(c.seed) < 0;
+    });
+    actors.forEach(a => a.update());
+
+    camTarget.lerp(new THREE.Vector3(knight.pos.x * 0.6, 0, knight.pos.z * 0.6), Math.min(1, dt * 2));
+
+    const snap = UPP, cx = Math.round(camTarget.dot(camRight) / snap) * snap, cy = Math.round(camTarget.dot(camUp) / snap) * snap;
+    const snapped = camTarget.clone().addScaledVector(camRight, cx - camTarget.dot(camRight)).addScaledVector(camUp, cy - camTarget.dot(camUp));
+    camera.position.copy(snapped).addScaledVector(CAM_DIR, 60); camera.lookAt(snapped);
+
+    sun.position.copy(snapped).addScaledVector(sunDir, 70); sun.target.position.copy(snapped); sun.target.updateMatrixWorld();
+
+    ditherMat.uniforms.uTime.value = t; crtMat.uniforms.uTime.value = t;
+    renderer.setRenderTarget(sceneRT); renderer.setClearColor(BG, 1); renderer.clear(); renderer.render(scene, camera);
+    ditherMat.uniforms.tScene.value = sceneRT.texture;
+    renderer.setRenderTarget(ditherRT); renderer.clear(); renderer.render(ditherScene, orthoCam);
+    crtMat.uniforms.tImg.value = ditherRT.texture;
+    renderer.setRenderTarget(null); renderer.setClearColor(0x0b090b, 1); renderer.clear(); renderer.render(crtScene, orthoCam);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
