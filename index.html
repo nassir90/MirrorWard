@@ -960,7 +960,7 @@ const GEN2 = {"deadtrees": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
           for (let i = 0; i < 26; i++) { let x, z, k = 0; do { x = (sr() - 0.5) * 22; z = (sr() - 0.5) * 22; } while ((!inLake(x, z) || Math.hypot(x, z) < 3.5) && ++k < 40); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6 + sr() * 1.2, 0.07), streakM); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.01, z); m.userData.x0 = x; m.userData.ph = sr() * 6; W.sc.add(m); streaks.push(m); }
           W.updates.push(t => streaks.forEach(m => { m.position.x = m.userData.x0 + Math.sin(t * 0.3 + m.userData.ph) * 0.4; })); W.sc.add(water); }
         { const m = menhir({ h: 12, w: 5.4, d: 2.6, seed: 2, split: true, lean: 0.05, color: 0x857d80 }); m.rotation.y = 0.2; W.sc.add(m);
-          const r = m.clone(); r.scale.y = -1; r.castShadow = false; W.sc.add(r); }
+          const r = m.clone(); r.scale.y = -1; r.castShadow = false; r.receiveShadow = false; W.sc.add(r); }
         actor(W, 'deadtrees', 13, -12, { frame: 0 });
 
         { const rings = Array.from({ length: 10 }, () => { const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 28), new THREE.MeshBasicMaterial({ color: 0xe4dfd8, transparent: true, opacity: 0, depthWrite: false, fog: false })); m.rotation.x = -Math.PI / 2; m.position.y = 0.02; W.sc.add(m); return { m, t: 9 }; });
