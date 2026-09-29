@@ -1,0 +1,12 @@
+{
+  "name": "mirror-ward",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p dist && cp index.html dist/index.html",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "cf": "^1.0.0-beta.5",
+    "wrangler": "^4.144.0"
+  }
+}

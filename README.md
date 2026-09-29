@@ -8,7 +8,7 @@ The only colour is red.
 
 ## Play
 
-Open `index.html` in a modern browser. It loads three.js from cdnjs and two fonts from Google Fonts, so it needs an internet connection. Everything else, including all the art, is inside the one HTML file.
+Play it at **<https://mpts.ie/games/mirrorward/>**, or open `index.html` in a modern browser. It loads three.js from cdnjs and two fonts from Google Fonts, so it needs an internet connection. Everything else, including all the art, is inside the one HTML file.
 
 To serve it locally:
 
@@ -88,6 +88,7 @@ The art direction and several scene compositions reference the Steam game **[O E
 | Path | Contents |
 | --- | --- |
 | `index.html` | The whole game, including the processed sprite sheets as embedded data |
+| `worker.js`, `wrangler.jsonc`, `package.json` | The Cloudflare Worker that serves the game |
 | `studio.js` | In-browser tool that renders the vertical promo videos (WebCodecs H.264 + AAC, muxed with `mp4-muxer`) |
 | `prototypes/` | Earlier experiments: the first rose field and tower, the sprite-shadow sandbox, and the first scene replicas |
 | `tools/` | Python asset pipeline, plus a small Swift frame grabber for checking rendered videos |
@@ -95,6 +96,18 @@ The art direction and several scene compositions reference the Steam game **[O E
 | `sprites/out4` | Previews of processed sheets, also used by `studio.js` |
 | `docs/screenshots` | The screenshots above |
 | `docs/playtest` | Captures from automated playthroughs, also used by `studio.js` |
+
+## Deploy
+
+The live site is a Cloudflare Worker, `mirror-ward`, on the route `mpts.ie/games/mirrorward*`. `worker.js` strips the `/games/mirrorward` prefix and serves `index.html` from the Worker's static assets. `wrangler.jsonc` holds the configuration.
+
+```bash
+npm install
+npx wrangler login
+npm run deploy
+```
+
+`npm run deploy` copies `index.html` into `dist/`, which is the only folder uploaded, then runs `wrangler deploy`.
 
 ## Regenerating assets
 

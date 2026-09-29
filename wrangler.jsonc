@@ -1,0 +1,13 @@
+{
+  "name": "mirror-ward",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "routes": [
+    { "pattern": "mpts.ie/games/mirrorward*", "zone_name": "mpts.ie" }
+  ]
+}
