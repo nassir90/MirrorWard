@@ -35,8 +35,8 @@ The area list under the game jumps straight to any part of the journey, with the
 
 | | |
 | --- | --- |
-| ![The inscription](docs/screenshots/01_inscription.jpg) | ![The courtyard beneath the earth](docs/screenshots/02_courtyard.jpg) |
-| **The inscription.** A stone, and a hole in the earth beside it. | **Beneath the earth.** You fall into a round courtyard at the head of a bridge. |
+| ![The beginning](docs/screenshots/01_inscription.jpg) | ![The courtyard beneath the earth](docs/screenshots/02_courtyard.jpg) |
+| **The beginning.** A stone, and a hole in the earth beside it. | **Beneath the earth.** You fall into a round courtyard at the head of a bridge. |
 | ![The bridge](docs/screenshots/03_bridge.jpg) | ![Waking beside the abyss](docs/screenshots/04_wake.jpg) |
 | **The bridge.** The first ring waits at the far end. | **Chasm edge.** You wake with a sword, bleeding a little. |
 | ![The descent](docs/screenshots/05_descent.jpg) | ![The snowfield](docs/screenshots/06_snowfield.jpg) |
