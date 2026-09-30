@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirror Ward video maker</title>
+<style>
+  :root { --bg: #0b090b; --panel: #161214; --line: #3a3236; --ink: #f0e7d4; --dim: #9d908f; --red: #d0101c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--dim); }
+  label { display: block; font-weight: 600; margin: 18px 0 6px; }
+  .hint { font-weight: 400; color: var(--dim); font-size: 13px; }
+  input[type=text], select, input[type=number] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  input[type=text] { width: 100%; }
+  input[type=number] { width: 80px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .row select { flex: 1; }
+  button { font: inherit; font-weight: 600; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  button:hover { border-color: var(--dim); }
+  button.primary { background: var(--red); border-color: var(--red); color: #fff; font-size: 17px; padding: 12px 22px; }
+  button.x { padding: 6px 10px; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
+  #status { color: var(--dim); }
+  aside { position: sticky; top: 16px; align-self: start; }
+  video { width: 100%; border-radius: 8px; background: #000; display: none; }
+  #download { display: none; margin-top: 10px; text-align: center; text-decoration: none; }
+  #download.show { display: block; }
+  .stage { width: 340px; height: 340px; overflow: hidden; border-radius: 8px; border: 1px solid var(--line); }
+  iframe { width: 640px; height: 640px; border: 0; transform: scale(0.53125); transform-origin: 0 0; }
+  .small { font-size: 13px; color: var(--dim); margin-top: 6px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } aside { position: static; } }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Mirror Ward video maker</h1>
+    <p class="sub">Change the text and clips, press Render, then download the MP4. Rendering takes about a minute. Use Chrome.</p>
+
+    <label for="top">Top text <span class="hint">shown over the clips</span></label>
+    <input id="top" type="text">
+
+    <label>Clips <span class="hint">scene and seconds, in order</span></label>
+    <div id="clips"></div>
+    <button id="add" type="button">+ Add clip</button>
+
+    <label for="punchline">Punchline <span class="hint">big text in the middle, after the clips</span></label>
+    <input id="punchline" type="text">
+    <div class="row" style="margin-top:8px"><span class="hint" style="width:120px">over scene</span><select id="punchScene"></select><input id="punchSecs" type="number" min="0.5" step="0.1"><span class="hint">s</span></div>
+    <div class="row"><label style="margin:0;font-weight:400"><input id="boom" type="checkbox"> Boom and music cut on the punchline</label></div>
+
+    <label>Ending clip <span class="hint">plain gameplay after the punchline; 0 seconds to skip</span></label>
+    <div class="row"><select id="endScene"></select><input id="endSecs" type="number" min="0" step="0.1"><span class="hint">s</span></div>
+
+    <label for="music">Music</label>
+    <select id="music">
+      <option value="jig">Fast jig</option>
+      <option value="story">Slow and grave</option>
+      <option value="make">Plucked arpeggios</option>
+    </select>
+
+    <div class="actions">
+      <button id="render" class="primary" type="button">Render</button>
+      <button id="reset" type="button">Reset to default</button>
+      <span id="status">Loading the game…</span>
+    </div>
+  </section>
+
+  <aside>
+    <div class="stage"><iframe id="game" src="index.html?capture" title="Game used for recording"></iframe></div>
+    <p class="small">The game plays here while recording. Leave this tab in front until it's done.</p>
+    <video id="out" controls playsinline></video>
+    <a id="download" download="mirror-ward-video.mp4"><button type="button" style="width:100%">Download MP4</button></a>
+  </aside>
+</main>
+
+<script>
+  const NAMES = {
+    lake: 'Wading in the lake', courtyard: 'Falling into the courtyard', dogs: 'Fighting dogs', ravens: 'Fire at ravens',
+    village: 'Burning village, Burt crying', inventory: 'Inventory hands and rings', tower: 'Walking into the tower',
+    snowfield: 'Walking the snowfield', city: 'City on the cliff', naming: 'Naming the boy', burial: 'The burial',
+    ring: 'Taking the ring on the bridge', wake: 'Waking beside the abyss', beginning: 'Reading the stone', gallery: 'Ring gallery'
+  };
+  const DEFAULT = {
+    topText: 'opus 5.5 made this game....',
+    clips: [['lake', 1.3], ['courtyard', 1.3], ['dogs', 1.3], ['ravens', 1.3], ['village', 1.3], ['inventory', 1.0]],
+    punchline: 'are we cooked? \u{1F480}', punch: ['tower', 2.6], boom: true, ending: ['snowfield', 2.2], music: 'jig'
+  };
+  const $ = id => document.getElementById(id);
+  const options = sel => Object.entries(NAMES).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v}</option>`).join('');
+  function addClip(scene = 'lake', secs = 1.3) {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<select>${options(scene)}</select><input type="number" min="0.3" step="0.1" value="${secs}"><span class="hint">s</span><button class="x" type="button" aria-label="Remove clip">✕</button>`;
+    row.querySelector('button').onclick = () => row.remove();
+    $('clips').appendChild(row);
+  }
+  function load(d) {
+    $('top').value = d.topText; $('clips').innerHTML = ''; d.clips.forEach(([s, n]) => addClip(s, n));
+    $('punchline').value = d.punchline; $('punchScene').innerHTML = options(d.punch[0]); $('punchSecs').value = d.punch[1];
+    $('boom').checked = d.boom; $('endScene').innerHTML = options(d.ending[0]); $('endSecs').value = d.ending[1]; $('music').value = d.music;
+  }
+  function read() {
+    return {
+      topText: $('top').value, punchline: $('punchline').value,
+      clips: [...$('clips').children].map(r => ({ scene: r.querySelector('select').value, seconds: +r.querySelector('input').value })).filter(c => c.seconds > 0),
+      punch: +$('punchSecs').value > 0 ? { scene: $('punchScene').value, seconds: +$('punchSecs').value } : null,
+      ending: +$('endSecs').value > 0 ? { scene: $('endScene').value, seconds: +$('endSecs').value } : null,
+      boom: $('boom').checked, music: $('music').value
+    };
+  }
+  try { const saved = JSON.parse(localStorage.getItem('mw-video-spec')); load(saved && saved.clips ? saved : DEFAULT); } catch (e) { load(DEFAULT); }
+  $('add').onclick = () => addClip();
+  $('reset').onclick = () => load(DEFAULT);
+
+  const frame = $('game');
+  let ready = null;
+  const inject = (w, src) => new Promise((res, rej) => { const s = w.document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); w.document.head.appendChild(s); });
+  frame.onload = () => {
+    const w = frame.contentWindow;
+    ready = (async () => {
+      for (let i = 0; i < 100 && !w.__rot; i++) await new Promise(r => setTimeout(r, 100));
+      await inject(w, 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js');
+      await inject(w, 'studio.js');
+      return w;
+    })();
+    ready.then(() => { $('status').textContent = 'Ready.'; }, e => { $('status').textContent = e.message; });
+  };
+
+  $('render').onclick = async () => {
+    const spec = read();
+    if (!spec.clips.length && !spec.punch) { $('status').textContent = 'Add at least one clip.'; return; }
+    try { localStorage.setItem('mw-video-spec', JSON.stringify({ topText: spec.topText, punchline: spec.punchline, clips: spec.clips.map(c => [c.scene, c.seconds]), punch: spec.punch ? [spec.punch.scene, spec.punch.seconds] : ['tower', 0], boom: spec.boom, ending: spec.ending ? [spec.ending.scene, spec.ending.seconds] : ['snowfield', 0], music: spec.music })); } catch (e) {}
+    $('render').disabled = true; $('status').textContent = 'Rendering… 0%';
+    try {
+      const w = await ready;
+      const blob = await w.STUDIO.renderSpec(spec, p => { $('status').textContent = 'Rendering… ' + Math.round(p * 100) + '%'; });
+      const url = URL.createObjectURL(blob);
+      $('out').src = url; $('out').style.display = 'block';
+      $('download').href = url; $('download').classList.add('show');
+      $('status').textContent = 'Done: ' + (blob.size / 1e6).toFixed(1) + ' MB.';
+    } catch (e) { $('status').textContent = 'Render failed: ' + e.message; }
+    $('render').disabled = false;
+  };
+</script>
+</body>
+</html>

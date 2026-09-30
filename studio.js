@@ -35,6 +35,14 @@
   const cap = (s, y = 1640, size = 64) => (t) => text(s, VW / 2, y, BL(size), INK, 'center', fadeIn(t - 0.2));
   const top = (s, size = 92) => (t) => text(s, VW / 2, 250, BL(size), INK, 'center', fadeIn(t - 0.1));
   const both = (...fs) => (t, d) => fs.forEach(f => f(t, d));
+  function meme(sText, y, size, alpha = 1, max = 980) {
+    cx.save(); cx.globalAlpha = alpha; cx.font = `800 ${size}px "Helvetica Neue", Arial, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const words = String(sText).split(' '); let line = '', lines = [];
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (cx.measureText(t).width > max && line) { lines.push(line); line = w; } else line = t; }
+    lines.push(line); const lh = size * 1.12;
+    lines.forEach((l, i) => { const yy = y + (i - (lines.length - 1) / 2) * lh; cx.lineJoin = 'round'; cx.lineWidth = size * 0.2; cx.strokeStyle = '#000'; cx.strokeText(l, VW / 2, yy); cx.fillStyle = '#fff'; cx.fillText(l, VW / 2, yy); });
+    cx.restore();
+  }
   const S = {};
   S.inscription = (d = 5.5) => shot(d, () => { R.newGame(); clear(); R.walkTo(-1.5, 1.2); }, (t, st) => once(st, 'a', t, 3.0, () => R.act()));
   S.fall = (d = 4.6) => shot(d, () => { R.jump(0, true); clear(); K().pos.set(2.2, 0, 2.9); }, (t, st) => once(st, 'a', t, 0.2, () => R.act()));
@@ -110,7 +118,7 @@
 
     make: { bpm: 100, lead: [[74,1],[72,.5],[69,.5],[67,1],[69,1],[65,1],[64,.5],[62,.5],[64,2],[69,1],[72,1],[71,.5],[69,.5],[67,1],[65,1],[64,1],[62,2]], bass: [38, 36, 34, 36], chords: [[62,65,69],[60,64,67],[58,62,65],[60,64,67]], drum: 'soft', arp: true }
   };
-  async function music(themeName, dur) {
+  async function music(themeName, dur, fx = {}) {
     const th = THEMES[themeName], ctx = new OfflineAudioContext(2, Math.ceil(dur * SR), SR), out = ctx.createGain(); out.gain.value = 0.9;
     const comp2 = ctx.createDynamicsCompressor(); out.connect(comp2); comp2.connect(ctx.destination);
     const beat = 60 / th.bpm, bar = beat * (th.drum === 'jig' ? 3 : 4);
@@ -145,10 +153,17 @@
     for (let t = lead0, i = 0; t < dur - 0.3; i++) { const [m, bt] = th.lead[i % th.lead.length], d = bt * beat; const o = voice('square', mtof(m), t, d * 0.92, 0.07, 2400, 0.5); o.detune.setValueAtTime(0, t); t += d; }
     const master = ctx.createGain();
     out.gain.setValueAtTime(0.9, Math.max(0, dur - 1.5)); out.gain.linearRampToValueAtTime(0, dur);
+    (fx.drop || []).forEach(([a, b]) => { out.gain.setValueAtTime(0.9, Math.max(0, a - 0.02)); out.gain.linearRampToValueAtTime(0, a); out.gain.setValueAtTime(0, b); out.gain.linearRampToValueAtTime(0.9, b + 0.05); });
+    (fx.boom || []).forEach(t0 => {
+      const o = ctx.createOscillator(), a = ctx.createGain(), sh2 = ctx.createWaveShaper(), curve = new Float32Array(256);
+      for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 3); } sh2.curve = curve;
+      o.frequency.setValueAtTime(95, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.9); a.gain.setValueAtTime(0.0001, t0); a.gain.linearRampToValueAtTime(0.9, t0 + 0.01); a.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+      o.connect(sh2); sh2.connect(a); a.connect(ctx.destination); o.start(t0); o.stop(t0 + 1.5);
+    });
     return ctx.startRendering();
   }
 
-  async function record(name, shots, themeName, badge) {
+  async function record(name, shots, themeName, badge, opts = {}) {
     await document.fonts.load(BL(80)); await document.fonts.load(PX(40));
     IM.kidRaw = IM.kidRaw || await img('sprites/raw4/kid.png'); IM.kidOut = IM.kidOut || await img('sprites/out4/kid14.png');
     IM.handRaw = IM.handRaw || await img('sprites/raw4/hand_sword.png'); IM.handOut = IM.handOut || await img('sprites/out4/hand_sword_x3.png');
@@ -162,21 +177,23 @@
     let f = 0;
     for (const sh of shots) {
       const st = {}; sh.setup(st); if (!sh.slide && G().kidName) G().kidName = 'Burt';
+      for (let k = 0; k < Math.round((sh.skip || 0) * FPS); k++) { sh.tick(k / FPS, st); R.run(1 / FPS); }
       const n = Math.round(sh.dur * FPS);
       for (let i = 0; i < n; i++, f++) {
-        const t = i / FPS; sh.tick(t, st);
+        const t = i / FPS + (sh.skip || 0); sh.tick(t, st);
         if (!sh.slide) R.run(1 / FPS);
         base(); if (!sh.slide) game(1); sh.over(t, sh.dur);
         if (badge) { cx.fillStyle = 'rgba(27,22,25,0.85)'; cx.fillRect(VW / 2 - 250, 1800, 500, 64); text('Made by Claude Opus 5.5', VW / 2, 1832, PX(36), INK, 'center', 1); }
-        const edge = Math.min(i, n - 1 - i); if (edge < 6) { cx.fillStyle = `rgba(11,9,11,${1 - edge / 6})`; cx.fillRect(0, 0, VW, VH); }
+        const edge = Math.min(i, n - 1 - i); if (edge < 6 && !sh.noFade) { cx.fillStyle = `rgba(11,9,11,${1 - edge / 6})`; cx.fillRect(0, 0, VW, VH); }
         const vf = new VideoFrame(comp, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
         ve.encode(vf, { keyFrame: f % 60 === 0 }); vf.close();
+        if (opts.onProgress && f % 10 === 0) opts.onProgress(f / Math.round(dur * FPS));
         while (ve.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 2));
       }
       if (sh.after) sh.after();
     }
     await ve.flush();
-    const buf = await music(themeName, dur);
+    const buf = await music(themeName, dur, shots.fx || {});
     const ae = new AudioEncoder({ output: (c, m) => mux.addAudioChunk(c, m), error: e => { throw e; } });
     ae.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 192000 });
     const L = buf.getChannelData(0), Rr = buf.getChannelData(1), CH = 1024;
@@ -185,6 +202,7 @@
       const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(i / SR * 1e6), data }); ae.encode(ad); ad.close();
     }
     await ae.flush(); mux.finalize();
+    if (opts.returnBlob) return new Blob([target.buffer], { type: 'video/mp4' });
     const res = await fetch('/save?name=' + name + '.mp4', { method: 'POST', body: new Blob([target.buffer], { type: 'video/mp4' }) });
     return { name, seconds: +dur.toFixed(1), bytes: target.buffer.byteLength, saved: await res.text() };
   }
@@ -215,6 +233,18 @@
       grid('6. Playtest it itself', ['g_01_stone', 'g_08_fight', 'g_15_tug', 'g_20_fire', 'g_24_village', 'g_29_end']),
       titleCard('Claude Opus 5.5', 'built in one Claude Code session', '~1,900 lines \u00b7 28 generated images \u00b7 138 sprite frames')],
 
+    meme_cooked: () => {
+      const HOOK = 'opus 5.5 made this game....';
+      const clip = (shotObj, dur, skip) => Object.assign(shotObj, { dur, skip, noFade: true, over: t => meme(HOOK, 250, 76) });
+      const list = [
+        clip(S.lake(6), 1.3, 1.6), clip(S.fall(4.6), 1.3, 2.9), clip(S.dogs(6.5), 1.3, 1.2), clip(S.ravens(6.5), 1.3, 1.6),
+        clip(S.houses(7.5), 1.3, 4.9), clip(S.inventory(7), 1.0, 0.6),
+        Object.assign(S.tower(8), { dur: 2.6, skip: 3.4, noFade: true, over: t => { cx.fillStyle = `rgba(0,0,0,${Math.min(0.55, t * 3)})`; cx.fillRect(0, 0, VW, VH); meme('are we cooked? \ud83d\udc80', VH / 2, 110 + Math.max(0, 1 - t * 6) * 40); } }),
+        Object.assign(S.snow(4.2), { dur: 2.2, skip: 1.0, noFade: true, over: () => {} })
+      ];
+      list.fx = { boom: [7.5], drop: [[7.5, 10.1]] };
+      return list;
+    },
     claude_requests: () => {
       const req = (s, shotObj) => Object.assign(shotObj, { over: (t) => bubble('you asked', s, 150, fadeIn(t)) });
       return [titleCard('You describe it.', 'Opus 5.5 builds it.'),
@@ -227,7 +257,24 @@
         titleCard('Claude Opus 5.5', 'a custom game, derived from a source game', 'one request at a time')];
     }
   };
-  window.STUDIO = { record, V, music, S, status: {} };
+
+  const SCENES = {
+    lake: [S.lake, 6, 1.6], courtyard: [S.fall, 4.6, 2.9], dogs: [S.dogs, 6.5, 1.2], ravens: [S.ravens, 6.5, 1.6],
+    village: [S.houses, 7.5, 4.9], inventory: [S.inventory, 7, 0.6], tower: [S.tower, 8, 3.4], snowfield: [S.snow, 4.2, 1.0],
+    city: [S.city, 4.4, 1.0], naming: [S.name, 6.2, 1.2], burial: [S.bury, 6.4, 1.8], ring: [S.ring, 5.2, 1.2],
+    wake: [S.wake, 4.6, 0.8], beginning: [S.inscription, 5.5, 2.8], gallery: [S.gallery, 6, 1.5]
+  };
+  const make = (scene, seconds) => { const [f, d, skip] = SCENES[scene]; return Object.assign(f(d), { dur: +seconds, skip, noFade: true }); };
+  async function renderSpec(spec, onProgress) {
+    R.pause(true);
+    const list = spec.clips.map(c => Object.assign(make(c.scene, c.seconds), { over: () => meme(spec.topText, 250, 76) }));
+    const punchAt = list.reduce((a, s2) => a + s2.dur, 0);
+    if (spec.punch) list.push(Object.assign(make(spec.punch.scene, spec.punch.seconds), { over: t => { cx.fillStyle = `rgba(0,0,0,${Math.min(0.55, t * 3)})`; cx.fillRect(0, 0, VW, VH); meme(spec.punchline, VH / 2, 110 + Math.max(0, 1 - t * 6) * 40); } }));
+    if (spec.ending) list.push(Object.assign(make(spec.ending.scene, spec.ending.seconds), { over: () => {} }));
+    if (spec.boom && spec.punch) list.fx = { boom: [punchAt], drop: [[punchAt, punchAt + +spec.punch.seconds]] };
+    return record('video', list, spec.music || 'jig', false, { returnBlob: true, onProgress });
+  }
+  window.STUDIO = { record, V, music, S, status: {}, renderSpec, SCENES: Object.keys(SCENES) };
   window.STUDIO.run = (name, theme) => { const st = window.STUDIO.status[name] = { state: 'running' }; R.pause(true);
     record(name, V[name](), theme, name.startsWith('claude')).then(r => Object.assign(st, { state: 'done' }, r)).catch(e => Object.assign(st, { state: 'error', error: String(e && e.stack || e) })); return st; };
 })();

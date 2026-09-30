@@ -133,7 +133,8 @@ const GEN2 = {"deadtrees": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
     return out;
   }
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  const CAPTURE = /[?&]capture\b/.test(location.search);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: CAPTURE });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap; renderer.autoClear = false;
   const sun = new THREE.DirectionalLight(0xf4f0f6, 1.4);
@@ -1235,7 +1236,7 @@ let lastUI = '';
   const sceneRT = new THREE.WebGLRenderTarget(LOW, LOW, nearest), ditherRT = new THREE.WebGLRenderTarget(LOW, LOW, nearest);
   sceneRT.depthTexture = new THREE.DepthTexture(LOW, LOW); sceneRT.depthTexture.type = THREE.UnsignedIntType;
 
-  function fit() { const size = Math.max(200, Math.floor(Math.min(stage.clientWidth - 32, window.innerHeight - hud.offsetHeight - 40))); renderer.setSize(size, size, true); hud.style.maxWidth = size + 'px'; }
+  function fit() { const size = CAPTURE ? 606 : Math.max(200, Math.floor(Math.min(stage.clientWidth - 32, window.innerHeight - hud.offsetHeight - 40))); renderer.setSize(size, size, true); hud.style.maxWidth = size + 'px'; }
   window.addEventListener('resize', fit);
 
   const sel = document.getElementById('sceneSel'), sunAz = document.getElementById('sunAz'), sunEl = document.getElementById('sunEl');

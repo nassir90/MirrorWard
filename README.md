@@ -89,6 +89,7 @@ The art direction and several scene compositions reference the Steam game **[O E
 | --- | --- |
 | `index.html` | The whole game, including the processed sprite sheets as embedded data |
 | `worker.js`, `wrangler.jsonc`, `package.json` | The Cloudflare Worker that serves the game |
+| `video-maker.html`, `Make Video.command` | The video maker: edit text and clips, render, download |
 | `studio.js` | In-browser tool that renders the vertical promo videos (WebCodecs H.264 + AAC, muxed with `mp4-muxer`) |
 | `prototypes/` | Earlier experiments: the first rose field and tower, the sprite-shadow sandbox, and the first scene replicas |
 | `tools/` | Python asset pipeline, plus a small Swift frame grabber for checking rendered videos |
@@ -96,6 +97,16 @@ The art direction and several scene compositions reference the Steam game **[O E
 | `sprites/out4` | Previews of processed sheets, also used by `studio.js` |
 | `docs/screenshots` | The screenshots above |
 | `docs/playtest` | Captures from automated playthroughs, also used by `studio.js` |
+
+## Making videos
+
+Double-click `Make Video.command`. It opens the video maker in Chrome:
+
+1. Edit the top text, the clips (scene and seconds), the punchline and the music.
+2. Press **Render** and leave the tab in front for about a minute.
+3. Press **Download MP4**.
+
+The video maker saves your last settings, and **Reset to default** brings back the original meme.
 
 ## Deploy
 
