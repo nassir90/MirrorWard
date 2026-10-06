@@ -1,7 +1,6 @@
-import json, base64, sys, time, urllib.request, urllib.error, os, concurrent.futures as cf
-import os
-PROJECT = os.environ["GCP_PROJECT"]
-key = open(sys.argv[1]).read().strip(); out = sys.argv[2]; only = set(sys.argv[3:])
+import sys, concurrent.futures as cf
+from gemini import read_key, image
+key = read_key(sys.argv[1]); out = sys.argv[2]; only = set(sys.argv[3:])
 STYLE = ("Retro pixel art game asset sheet, crisp hard-edged pixels, no anti-aliasing, no text, no labels, no grid, "
          "no ground shadows, no ground plane. Muted greyscale palette only (near-black, dark grey, mid grey, light grey, "
          "off-white), bleak medieval winter mood. Plain flat solid pure magenta (#FF00FF) background filling the whole image. ")
@@ -33,24 +32,6 @@ JOBS = {
              "1) the Ring of Knowledge: a plain pale silver band with a small engraved open eye on its face; "
              "2) the Ring of Fire: a dark iron band holding a small flame-shaped setting on top.", "16:9"),
 }
-URL = "https://aiplatform.googleapis.com/v1/projects/" + PROJECT + "/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent"
-def run(name):
-    text, ar = JOBS[name]
-    body = {"contents": [{"role": "user", "parts": [{"text": text}]}],
-            "generationConfig": {"responseModalities": ["IMAGE"], "imageConfig": {"aspectRatio": ar}}}
-    for attempt in range(6):
-        req = urllib.request.Request(URL, json.dumps(body).encode(), {"Content-Type": "application/json", "x-goog-api-key": key})
-        try:
-            d = json.load(urllib.request.urlopen(req, timeout=240))
-        except urllib.error.HTTPError as e:
-            if e.code == 429: time.sleep(10 * (attempt + 1)); continue
-            return name, "HTTP %d %s" % (e.code, e.read()[:200])
-        for p in d["candidates"][0]["content"].get("parts", []):
-            if "inlineData" in p:
-                open(os.path.join(out, name + ".png"), "wb").write(base64.b64decode(p["inlineData"]["data"]))
-                return name, "ok"
-        return name, "no image"
-    return name, "rate limited"
 names = [n for n in JOBS if not only or n in only]
 with cf.ThreadPoolExecutor(3) as ex:
-    for n, r in ex.map(run, names): print(n, r, flush=True)
+    for n, r in zip(names, ex.map(lambda n: image(key, JOBS[n][0], JOBS[n][1], out, n), names)): print(n, r, flush=True)
