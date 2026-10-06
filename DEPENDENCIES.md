@@ -4,7 +4,7 @@
 
 | Dependency | Version | Loaded from | Notes |
 |---|---|---|---|
-| three.js | r128 | cdnjs | Current release is r186. r128 works and every scene is tuned against it. Upgrading is a project, not a bump: r152 turned colour management on by default, which would shift the palette, and light intensities changed in r155. Re-check the baseline takes frame by frame if you upgrade. |
+| three.js | 0.186.1 (r186) | jsDelivr (`+esm` bundle) | Imported as an ES module. The game was tuned on r128, so it turns colour management off and patches three's lighting shader chunks back to r128's legacy model (intensities scaled by pi, linear falloff to the light's range). The patch throws if a future three.js changes those chunks; re-check the baseline takes before bumping. |
 | Pixelify Sans, UnifrakturMaguntia | — | Google Fonts | HUD and titles. |
 
 Everything else in the game is its own code: the CRT and dither shaders, the deterministic `mulberry32` RNG, value noise, the sprite sheets (embedded as data URIs).
