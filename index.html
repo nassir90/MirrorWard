@@ -186,6 +186,16 @@ const GEN2 = {"deadtrees": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
 
     const mat = o.unlit ? new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, fog: false })
                         : new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, color: new THREE.Color().setScalar(W.def.spriteK ?? 1) });
+
+    if (o.sink) {
+      mat.userData.sink = { value: new THREE.Vector2(0, 0) };
+      mat.onBeforeCompile = sh => {
+        sh.uniforms.uSink = mat.userData.sink;
+        sh.vertexShader = 'uniform vec2 uSink; varying float vSinkY;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vSinkY = (modelMatrix * vec4(transformed, 1.0)).y;');
+        sh.fragmentShader = 'uniform vec2 uSink; varying float vSinkY;\nfloat sinkB2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }\n' + sh.fragmentShader.replace('#include <map_fragment>',
+          '#include <map_fragment>\n  if (uSink.y > 0.0 && clamp((vSinkY - uSink.x) / uSink.y, 0.0, 1.0) <= sinkB2(0.5 * gl_FragCoord.xy) * 0.25 + sinkB2(gl_FragCoord.xy)) discard;');
+      };
+    }
     const L = h / W.cosEl, vis = new THREE.Mesh(unitPlane, mat); vis.scale.set(w, L, 1); vis.quaternion.copy(W.yawQ);
     W.sc.add(vis);
 
@@ -209,6 +219,7 @@ const GEN2 = {"deadtrees": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
       const hs = a.hs ?? 1; vis.scale.y = L * hs || 1e-4; vis.position.set(a.pos.x, a.pos.y + L * hs / 2 + a.lift, a.pos.z).addScaledVector(W.dirH, a.front);
       if (refl) { refl.scale.set(w, -(L * hs || 1e-4), 1); refl.position.set(a.pos.x, -a.pos.y - L * hs / 2 - a.lift, a.pos.z).addScaledVector(W.dirH, a.front); }
       if (a.cast) a.cast.scale.y = h * hs || 1e-4;
+      if (mat.userData.sink) mat.userData.sink.value.set(a.sinkY || 0, a.sinkBand || 0);
       if (a.cast) { a.cast.position.set(a.pos.x, a.pos.y + a.lift + h * hs / 2, a.pos.z); a.cast.rotation.y = W.casterYaw; }
     };
     a.show = v => { a.shown = v; vis.visible = v; if (refl) refl.visible = v; if (a.cast) a.cast.visible = v; };
@@ -604,7 +615,7 @@ const GEN2 = {"deadtrees": {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
       c.prev.copy(pos);
     }));
   }
-  function knightIn(W, x, z, walk) { W.knight = actor(W, 'knight', x, z); W.knight.cyc = 8; W.knightStart = new V3(x, 0, z); W.walk = walk || (p => { p.x = clamp(p.x, -26, 26); p.z = clamp(p.z, -26, 26); }); W.walk(W.knight.pos); }
+  function knightIn(W, x, z, walk) { W.knight = actor(W, 'knight', x, z, { sink: true }); W.knight.cyc = 8; W.knightStart = new V3(x, 0, z); W.walk = walk || (p => { p.x = clamp(p.x, -26, 26); p.z = clamp(p.z, -26, 26); }); W.walk(W.knight.pos); }
 
   const SCENES = [
     {
@@ -1542,7 +1553,17 @@ let lastUI = '';
     }, () => k.sitting);
     t.pos = k.pos;
   }
-  let ashM = null; const ashMat = () => ashM || (ashM = std(0x6a6266));
+  let ashM = null; const ashMat = () => ashM || (ashM = [std(0x9a9094), std(0x5e575b), std(0x1c181a)]);
+
+  function ashPile(x, y, z, w) {
+    const [pale, grey, coal] = ashMat(), r = mulberry32(Math.round(x * 97 + z * 131)), R = clamp(w * 0.32, 0.6, 1.1), g = new THREE.Group();
+    const mound = mesh(new THREE.DodecahedronGeometry(R, 1), pale); mound.scale.set(1, 0.42, 0.85); g.add(mound);
+    const skirt = mesh(new THREE.DodecahedronGeometry(R * 1.35, 0), grey); skirt.scale.set(1, 0.16, 0.9); g.add(skirt);
+    for (let i = 0; i < 7; i++) { const a = r() * Math.PI * 2, d = R * (0.3 + r() * 0.8), lump = mesh(new THREE.DodecahedronGeometry(0.1 + r() * 0.12, 0), coal, Math.cos(a) * d, R * 0.3 * (1 - d / R / 1.2) + 0.04, Math.sin(a) * d * 0.85); lump.rotation.set(r() * 3, r() * 3, r() * 3); g.add(lump); }
+    g.add(mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.5 + R * 0.3, 6), coal, 0, 0.2, 0));
+    for (let i = 0; i < 2; i++) { const a = r() * Math.PI * 2, len = R * (1 + r() * 0.6), limb = mesh(new THREE.BoxGeometry(len, 0.1, 0.1), coal, Math.cos(a) * len * 0.45, 0.12, Math.sin(a) * len * 0.45); limb.rotation.set(0, -a, (r() - 0.5) * 0.3); g.add(limb); }
+    g.position.set(x, y, z); g.rotation.y = r() * Math.PI; W.sc.add(shadowed(g));
+  }
   function burnStep(dt, t) {
     (W.burning || []).forEach(b => {
       b.t += dt; b.fires.forEach(f => { if (f.shown) { f.frame = Math.floor(t * 9 + f.seed * 3) % 4; f.lift = f.baseLift; } });
@@ -1559,7 +1580,7 @@ let lastUI = '';
         if (u >= 1) {
           b.done = true; b.fires.forEach(f => f.show(false)); if (b.a) b.a.show(false);
           splat(new V3(b.x, b.y, b.z), 0x9d908f, 14, 0.4); splat(new V3(b.x, b.y, b.z), 0x41393e, 8, 0.2);
-          const heap = mesh(new THREE.SphereGeometry(0.55, 8, 5), ashMat()); heap.scale.set(1, 0.3, 0.8); heap.position.set(b.x, b.y, b.z); W.sc.add(heap);
+          ashPile(b.x, b.y, b.z, b.S ? b.S.w : b.a.w);
         }
       }
     });
@@ -1601,7 +1622,7 @@ let lastUI = '';
     if (game.fall && W.hole) {
       const f = game.fall; f.t += dt;
       if (f.t < 0.45) { const v = W.hole.clone().sub(K.pos); v.y = 0; const d = v.length(); if (d > 0.05) { K.pos.addScaledVector(v, Math.min(d, 3 * dt) / d); walkFrame(K, 3 * dt); } }
-      else { f.v += 24 * dt; K.lift -= f.v * dt; K.frame = 2; if (!f.gone && f.t > 0.75) { f.gone = true; game.dropIn = true; travel('bridge', 'start'); } }
+      else { f.v += 24 * dt; K.lift -= f.v * dt; K.frame = 2; K.sinkY = W.hole.y; K.sinkBand = Math.min(1.1, -K.lift * 1.5); if (!f.gone && f.t > 0.75) { f.gone = true; game.dropIn = true; travel('bridge', 'start'); } }
     }
     if (K.dropV !== undefined && !fade.job) {
       K.dropV += 24 * dt; K.lift = Math.max(0, K.lift - K.dropV * dt); K.frame = 2;
