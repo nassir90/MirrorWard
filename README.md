@@ -120,6 +120,8 @@ npm run deploy
 
 `npm run deploy` copies `index.html` into `dist/`, which is the only folder uploaded, then runs `wrangler deploy`.
 
+mpts.ie itself is [BannerAndLogo](https://github.com/nassir90/BannerAndLogo) on `mpts.ie/*`; this route is more specific, so it wins. Mirror Ward is listed on the games index, [mpts.ie/games](https://mpts.ie/games/), and has a stack of clips on the home page (BannerAndLogo's `site/games/index.html` and `site/index.html`), so a changed route needs updating there too.
+
 ## Regenerating assets
 
 The tools need Python 3 with Pillow and NumPy. The generation scripts call Gemini on Vertex AI. They take your Google Cloud project from the environment and read the API key from a file you pass in:
