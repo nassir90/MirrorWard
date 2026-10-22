@@ -4,7 +4,7 @@
 <style>
 
   :root {
-    --ground: #0b090b;
+    --ground: #110d12;
     --ink: #e9e1d2;
     --dim: #8c8078;
     --line: #3a3236;
@@ -13,8 +13,8 @@
     color-scheme: dark;
   }
   html, body { height: 100%; }
-  body { background: var(--ground); color: var(--ink); font-family: var(--font-ui); overflow: hidden; }
-  .stage { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding-inline: 16px; padding-block: 12px; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--font-ui); margin: 0; }
+  .stage { min-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding-inline: 16px; padding-block: 12px; }
   .frame { line-height: 0; max-width: 100%; }
   canvas { display: block; max-width: 100%; touch-action: none; cursor: pointer; }
   .hud { display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; }
@@ -1213,7 +1213,7 @@ let lastUI = '';
   handImg.onload = repaint;
   if (document.fonts) Promise.all([document.fonts.load('30px "UnifrakturMaguntia"'), document.fonts.load('15px "Pixelify Sans"')]).then(repaint, () => {});
   const crtMat = new THREE.ShaderMaterial({
-    uniforms: { tImg: { value: null }, tDepth: { value: null }, uInvVP: { value: new THREE.Matrix4() }, uBlurY: { value: new THREE.Vector2(5, 14) }, uBlurOn: { value: 1 }, tUI: { value: uiTex }, uUI: { value: 1 }, uHudFlat: { value: 1 }, uFade: { value: 0 }, uWhite: { value: 0 }, uLow: { value: new THREE.Vector2(LOWW, LOWH) }, uTime: { value: 0 }, uBg: { value: new THREE.Color(0x0b090b) } },
+    uniforms: { tImg: { value: null }, tDepth: { value: null }, uInvVP: { value: new THREE.Matrix4() }, uBlurY: { value: new THREE.Vector2(5, 14) }, uBlurOn: { value: 1 }, tUI: { value: uiTex }, uUI: { value: 1 }, uHudFlat: { value: 1 }, uFade: { value: 0 }, uWhite: { value: 0 }, uLow: { value: new THREE.Vector2(LOWW, LOWH) }, uTime: { value: 0 }, uBg: { value: new THREE.Color(0x110d12) } },
     vertexShader: VERT,
     fragmentShader: `
       precision highp float;
@@ -1833,7 +1833,7 @@ let lastUI = '';
     crtMat.uniforms.tImg.value = ditherRT.texture; crtMat.uniforms.tDepth.value = sceneRT.depthTexture;
     crtMat.uniforms.uInvVP.value.multiplyMatrices(VW.cam.projectionMatrix, VW.cam.matrixWorldInverse).invert();
     crtMat.uniforms.uBlurOn.value = flat ? 0 : 1; crtMat.uniforms.uHudFlat.value = flat ? 0 : 1; crtMat.uniforms.uBlurY.value.set(VW.target.y + 5, VW.target.y + 14);
-    renderer.setRenderTarget(null); renderer.setClearColor(0x0b090b, 1); renderer.clear(); renderer.render(crtScene, orthoCam);
+    renderer.setRenderTarget(null); renderer.setClearColor(0x110d12, 1); renderer.clear(); renderer.render(crtScene, orthoCam);
   }
   let paused = false;
   function frame() { const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime; if (!paused) { step(dt, t); draw(t); } requestAnimationFrame(frame); }
