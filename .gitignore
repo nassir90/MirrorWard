@@ -15,3 +15,4 @@ tools/frames
 !.env.example
 node_modules/
 dist/
+.cloudflare

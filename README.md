@@ -88,7 +88,7 @@ The art direction and several scene compositions reference the Steam game **[O E
 | Path | Contents |
 | --- | --- |
 | `index.html` | The whole game, including the processed sprite sheets as embedded data |
-| `worker.js`, `wrangler.jsonc`, `package.json` | The Cloudflare Worker that serves the game |
+| `worker.js`, `cloudflare.config.ts`, `wrangler.config.ts`, `package.json` | The Cloudflare Worker that serves the game |
 | `video-maker.html`, `Make Video.command` | The video maker: edit text and clips, render, download |
 | `studio.js` | In-browser tool that renders the vertical promo videos (WebCodecs H.264 + AAC, muxed with `mp4-muxer`) |
 | `prototypes/` | Earlier experiments: the first rose field and tower, the sprite-shadow sandbox, and the first scene replicas |
@@ -110,15 +110,15 @@ The video maker saves your last settings, and **Reset to default** brings back t
 
 ## Deploy
 
-The live site is a Cloudflare Worker, `mirror-ward`, on the route `mpts.ie/games/mirrorward*`. `worker.js` strips the `/games/mirrorward` prefix and serves `index.html` from the Worker's static assets. `wrangler.jsonc` holds the configuration.
+The live site is a Cloudflare Worker, `mirror-ward`, on the route `mpts.ie/games/mirrorward*`. `worker.js` strips the `/games/mirrorward` prefix and serves `index.html` from the Worker's static assets. `cloudflare.config.ts` holds the Worker configuration (entry, assets binding, route) and `wrangler.config.ts` the build step and assets folder.
 
 ```bash
 npm install
-npx wrangler login
-npm run deploy
+cf auth login
+cf deploy
 ```
 
-`npm run deploy` copies `index.html` into `dist/`, which is the only folder uploaded, then runs `wrangler deploy`.
+`cf deploy` runs `npm run build`, which copies `index.html` into `dist/`, the only folder uploaded, then deploys the Worker and its route. `npm run deploy` does the same.
 
 mpts.ie itself is [BannerAndLogo](https://github.com/nassir90/BannerAndLogo) on `mpts.ie/*`; this route is more specific, so it wins. Mirror Ward is listed on the games index, [mpts.ie/games](https://mpts.ie/games/), and has a stack of clips on the home page (BannerAndLogo's `site/games/index.html` and `site/index.html`), so a changed route needs updating there too.
 

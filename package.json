@@ -3,9 +3,10 @@
   "private": true,
   "scripts": {
     "build": "mkdir -p dist && cp index.html dist/index.html",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "cf deploy"
   },
   "devDependencies": {
-    "wrangler": "^4.144.0"
+    "cf": "^1.0.0-beta.20",
+    "wrangler": "^4.151.3"
   }
 }
